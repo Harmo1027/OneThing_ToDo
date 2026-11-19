@@ -19,6 +19,19 @@
     document.documentElement.style.setProperty("--bg-blur", backgroundBlur + "px");
     document.documentElement.style.setProperty("--card-blur", Math.max(26, backgroundBlur + 6) + "px");
   }
+  let cardTransparency = null;
+  try {
+    const savedTransparency = localStorage.getItem("yijian.cardTransparency.v1");
+    const transparencyNumber = Number(savedTransparency);
+    if (savedTransparency !== null && savedTransparency !== "" && Number.isFinite(transparencyNumber)) {
+      cardTransparency = Math.min(80, Math.max(0, Math.round(transparencyNumber / 2) * 2));
+    }
+  } catch { /* 存储不可用时使用默认透明度 */ }
+  if (cardTransparency !== null) {
+    const alphaScale = (100 - cardTransparency) / 62;
+    document.documentElement.style.setProperty("--card-alpha-scale", alphaScale.toFixed(4));
+    document.documentElement.style.setProperty("--card-gradient-scale", Math.min(1, alphaScale).toFixed(4));
+  }
 })();
 
 (function (root, factory) {

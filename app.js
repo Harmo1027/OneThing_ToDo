@@ -281,6 +281,7 @@
   const BACKGROUND_BLUR_KEY = "yijian.backgroundBlur.v1";
   const CARD_BLUR_KEY = "yijian.cardBlur.v1";
   const LEGACY_CARD_BLUR_KEY = "yijian.cardBlurBoost";
+  const CARD_TRANSPARENCY_KEY = "yijian.cardTransparency.v1";
   const BACKGROUND_HINT = "图片仅保存在当前浏览器，不会写入待办文件。";
   const BACKGROUND_BLUR_DEFAULT = 20;
   const BACKGROUND_BLUR_MAX = 40;
@@ -288,6 +289,10 @@
   const CARD_BLUR_MIN = 0;
   const CARD_BLUR_MAX = 80;
   const LEGACY_CARD_BLUR_BOOST = 14;
+  const CARD_TRANSPARENCY_DEFAULT = 38;
+  const CARD_TRANSPARENCY_MIN = 0;
+  const CARD_TRANSPARENCY_MAX = 80;
+  const CARD_TRANSPARENCY_BASE = 100 - CARD_TRANSPARENCY_DEFAULT;
   const backgroundButton = $("#background-button");
   const backgroundDialog = $("#background-dialog");
   const backgroundPreview = $("#background-preview");
@@ -300,9 +305,12 @@
   const backgroundBlurValue = $("#background-blur-value");
   const cardBlurInput = $("#card-blur");
   const cardBlurValue = $("#card-blur-value");
+  const cardTransparencyInput = $("#card-transparency");
+  const cardTransparencyValue = $("#card-transparency-value");
   let backgroundImage = "";
   let backgroundBlur = BACKGROUND_BLUR_DEFAULT;
   let cardBlur = CARD_BLUR_DEFAULT;
+  let cardTransparency = CARD_TRANSPARENCY_DEFAULT;
   const validBackground = value => typeof value === "string" && value.length < 4000000 && /^data:image\/(?:webp|jpeg|png);base64,[a-z0-9+/=]+$/i.test(value);
   const normalizeBackgroundBlur = value => {
     const number = Number(value);
@@ -311,6 +319,10 @@
   const normalizeCardBlur = value => {
     const number = Number(value);
     return Number.isFinite(number) ? Math.min(CARD_BLUR_MAX, Math.max(CARD_BLUR_MIN, Math.round(number / 2) * 2)) : CARD_BLUR_DEFAULT;
+  };
+  const normalizeCardTransparency = value => {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(CARD_TRANSPARENCY_MAX, Math.max(CARD_TRANSPARENCY_MIN, Math.round(number / 2) * 2)) : CARD_TRANSPARENCY_DEFAULT;
   };
   function readCardBlurSetting() {
     try {
@@ -326,6 +338,12 @@
       return initial;
     } catch { return CARD_BLUR_DEFAULT; }
   }
+  function readCardTransparencySetting() {
+    try {
+      const raw = localStorage.getItem(CARD_TRANSPARENCY_KEY);
+      return raw === null || raw === "" ? CARD_TRANSPARENCY_DEFAULT : normalizeCardTransparency(raw);
+    } catch { return CARD_TRANSPARENCY_DEFAULT; }
+  }
   function syncBackgroundBlur() {
     const active = Boolean(backgroundImage);
     backgroundBlurInput.disabled = !active;
@@ -338,6 +356,14 @@
     else document.documentElement.style.removeProperty("--bg-blur");
     if (active || cardBlur !== CARD_BLUR_DEFAULT) document.documentElement.style.setProperty("--card-blur", `${cardBlur}px`);
     else document.documentElement.style.removeProperty("--card-blur");
+  }
+  function syncCardTransparency() {
+    const alphaScale = (100 - cardTransparency) / CARD_TRANSPARENCY_BASE;
+    const gradientScale = Math.min(1, alphaScale);
+    cardTransparencyInput.value = String(cardTransparency);
+    cardTransparencyValue.textContent = `${cardTransparency}%`;
+    document.documentElement.style.setProperty("--card-alpha-scale", alphaScale.toFixed(4));
+    document.documentElement.style.setProperty("--card-gradient-scale", gradientScale.toFixed(4));
   }
   function applyBackground(image) {
     backgroundImage = validBackground(image) ? image : "";
@@ -451,8 +477,15 @@
     try { localStorage.setItem(CARD_BLUR_KEY, String(cardBlur)); } catch { /* 存储不可用时仅本次页面生效 */ }
     syncBackgroundBlur();
   });
+  cardTransparencyInput.addEventListener("input", () => {
+    cardTransparency = normalizeCardTransparency(cardTransparencyInput.value);
+    try { localStorage.setItem(CARD_TRANSPARENCY_KEY, String(cardTransparency)); } catch { /* 存储不可用时仅本次页面生效 */ }
+    syncCardTransparency();
+  });
   cardBlur = readCardBlurSetting();
+  cardTransparency = readCardTransparencySetting();
   readBackground();
+  syncCardTransparency();
 
   function animatePreview(preview) {
     previewAnimations.get(preview)?.cancel();
@@ -909,12 +942,18 @@
     time.textContent = new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(task.createdAt);
     time.title = new Date(task.createdAt).toLocaleString("zh-CN");
     const actions = element("div", "task-actions");
-    const complete = element("button", "icon-button complete-button", "√");
+    const complete = element("button", "icon-button complete-button");
     complete.type = "button";
     complete.dataset.action = "complete";
     complete.title = `${task.completed ? "取消完成" : "完成"}：${taskLabel(task)}`;
     complete.setAttribute("aria-label", complete.title);
     complete.setAttribute("aria-pressed", String(Boolean(task.completed)));
+    if (task.completed) {
+      complete.classList.add("is-undo");
+      complete.append(icon("undo"));
+    } else {
+      complete.textContent = "√";
+    }
     const pin = button("pin", `${task.pinnedAt ? "取消置顶" : "置顶"}：${taskLabel(task)}`, "pin");
     pin.setAttribute("aria-pressed", String(Boolean(task.pinnedAt)));
     actions.append(button("edit", `编辑：${taskLabel(task)}`, "edit"), pin, button("delete", `删除：${taskLabel(task)}`, "trash"));
@@ -2470,6 +2509,7 @@
   window.addEventListener("storage", event => {
     if (event.key === BACKGROUND_KEY) { applyBackground(event.newValue || ""); return; }
     if (event.key === CARD_BLUR_KEY) { cardBlur = event.newValue === null || event.newValue === "" ? CARD_BLUR_DEFAULT : normalizeCardBlur(event.newValue); syncBackgroundBlur(); return; }
+    if (event.key === CARD_TRANSPARENCY_KEY) { cardTransparency = event.newValue === null || event.newValue === "" ? CARD_TRANSPARENCY_DEFAULT : normalizeCardTransparency(event.newValue); syncCardTransparency(); return; }
     if (event.key === BACKGROUND_BLUR_KEY) {
       backgroundBlur = event.newValue === null || event.newValue === "" ? BACKGROUND_BLUR_DEFAULT : normalizeBackgroundBlur(event.newValue);
       syncBackgroundBlur();

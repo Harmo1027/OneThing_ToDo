@@ -25,7 +25,9 @@ try {
   const card = (root, id) => page.locator(`${root} .task-card[data-id="${id}"]`);
   const navDone = page.locator('#system-groups [data-group-id="done"]');
   const all = () => page.locator('#system-groups [data-group-id="all"]').click();
+  const settleEntrance = () => page.waitForFunction(() => !document.querySelector("#todo-view")?.classList.contains("is-workspace-entering"), null, { timeout: 5000 });
   const add = async (title, { homework = false, longTerm = false, urgent = false } = {}) => {
+    await settleEntrance();
     await page.locator("#task-heading").fill(title);
     await page.locator("#task-input").fill("完成状态需要保留原分组，也要进入已完成区域。");
     if (homework) await page.locator("#task-homework").setChecked(true);
@@ -73,6 +75,7 @@ try {
 
   const urgentButton = card("#task-list", urgentId).locator(".complete-button");
   assert.equal(await urgentButton.textContent(), "√");
+  assert.equal(await urgentButton.locator("svg").count(), 0, "未完成卡片保留 √ 图标");
   assert.equal(await urgentButton.getAttribute("aria-pressed"), "false");
   assert.equal(await urgentButton.getAttribute("aria-label"), "完成：需要完成的任务");
   const completeBox = await urgentButton.boundingBox();
@@ -92,6 +95,9 @@ try {
   assert.equal(await page.locator("#completed-section").isVisible(), false, "主页不显示已完成区域");
   assert.equal(await completedUrgent.locator(".complete-button").getAttribute("aria-pressed"), "true");
   assert.equal(await completedUrgent.locator(".complete-button").getAttribute("aria-label"), "取消完成：需要完成的任务");
+  assert.equal(await completedUrgent.locator(".complete-button").evaluate(node => node.classList.contains("is-undo")), true);
+  assert.equal(await completedUrgent.locator(".complete-button svg use").getAttribute("href"), "#icon-undo", "已完成卡片显示撤回图标");
+  assert.equal(await completedUrgent.locator(".complete-button").textContent(), "", "已完成按钮不再显示 √ 字符");
   assert.equal(await completedUrgent.locator(".complete-button").evaluate(node => getComputedStyle(node).backgroundColor), "rgba(0, 120, 212, 0.85)", "完成态实心蓝磨砂");
   assert.equal(await completedUrgent.locator(".completed-badge").textContent(), "已完成");
   const completedGlass = await completedUrgent.evaluate(node => { const s = getComputedStyle(node); return { blur: s.backdropFilter, bg: s.backgroundColor, transform: s.transform }; });
@@ -192,7 +198,10 @@ try {
   assert.equal(await page.locator("#completed-list .task-card").count(), 2);
   assert.equal(await page.locator("#pinned-list .task-card").count(), 1);
   assert.equal(await page.locator("#urgent-count").textContent(), "1");
-  assert.equal(await card("#task-list", urgentId).locator(".complete-button").getAttribute("aria-pressed"), "false");
+  const restoredButton = card("#task-list", urgentId).locator(".complete-button");
+  assert.equal(await restoredButton.getAttribute("aria-pressed"), "false");
+  assert.equal(await restoredButton.textContent(), "√", "撤回后恢复完成图标");
+  assert.equal(await restoredButton.locator("svg").count(), 0);
   assert.equal(await card("#task-list", urgentId).evaluate(node => node.classList.contains("is-pinned")), true);
   assert.equal(await card("#completed-list", homeworkId).count(), 1);
   assert.equal(await card("#completed-list", workTaskId).count(), 1);

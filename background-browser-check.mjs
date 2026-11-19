@@ -40,10 +40,22 @@ try {
     savedBlur: localStorage.getItem("yijian.backgroundBlur.v1"),
     blurVar: document.documentElement.style.getPropertyValue("--bg-blur"),
     cardBlurVar: document.documentElement.style.getPropertyValue("--card-blur"),
-    cardBlurSaved: localStorage.getItem("yijian.cardBlur.v1")
+    cardBlurSaved: localStorage.getItem("yijian.cardBlur.v1"),
+    transparency: document.querySelector("#card-transparency").value,
+    transparencySaved: localStorage.getItem("yijian.cardTransparency.v1"),
+    cardAlphaScale: document.documentElement.style.getPropertyValue("--card-alpha-scale"),
+    cardGradientScale: document.documentElement.style.getPropertyValue("--card-gradient-scale")
   }));
   const cardFilter = () => page.locator("#task-list .task-card").first().evaluate(card => getComputedStyle(card).backdropFilter);
+  const cardBackgroundAlpha = () => page.locator("#task-list .task-card").first().evaluate(card => {
+    const match = getComputedStyle(card).backgroundColor.match(/rgba\([^)]*,\s*([\d.]+)\)$/);
+    return match ? Number(match[1]) : 1;
+  });
   const setBackgroundBlur = value => page.locator("#background-blur").evaluate((input, value) => {
+    input.value = String(value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, value);
+  const setCardTransparency = value => page.locator("#card-transparency").evaluate((input, value) => {
     input.value = String(value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   }, value);
@@ -59,10 +71,16 @@ try {
   assert.equal(current.cardBlurVar, "");
   assert.equal(await page.locator("#background-blur").isDisabled(), true);
   assert.equal(await page.locator("#background-blur-value").textContent(), "20 px");
+  assert.equal(await page.locator("#card-transparency").isDisabled(), false);
+  assert.equal(await page.locator("#card-transparency").inputValue(), "38");
+  assert.equal(await page.locator("#card-transparency-value").textContent(), "38%");
+  assert.equal(current.transparencySaved, null);
+  assert.equal(Number(current.cardAlphaScale), 1);
   await page.locator("#task-heading").fill("自定义背景检查");
   await page.locator("#task-input").fill("卡片背后的照片需要柔化，文字仍然清晰。");
   await page.locator("#add-form .add-button").click();
   assert.match(await cardFilter(), /blur\(26px\)/, "卡片磨砂应比背景模糊更重");
+  assert.ok(Math.abs(await cardBackgroundAlpha() - .62) < .001, "默认卡片透明度保持玻璃底色");
 
   await page.locator("#background-button").click();
   assert.equal(await dialog.evaluate(node => node.open), true);
@@ -100,6 +118,19 @@ try {
   assert.match(current.filter, /blur\(32px\)/);
   assert.match(await cardFilter(), /blur\(26px\)/, "卡片磨砂与背景磨砂独立");
   assert.equal(await page.locator("#background-blur-value").textContent(), "32 px");
+  await setCardTransparency(60);
+  await page.waitForTimeout(260);
+  current = await state();
+  assert.equal(current.transparency, "60");
+  assert.equal(current.transparencySaved, "60");
+  assert.equal(await page.locator("#card-transparency-value").textContent(), "60%");
+  assert.ok(Math.abs(Number(current.cardAlphaScale) - 40 / 62) < .001, "透明度滑杆驱动底色透明缩放");
+  assert.ok(Math.abs(await cardBackgroundAlpha() - .4) < .001, "60% 时卡片底色明显更透");
+  await setCardTransparency(80);
+  await page.waitForTimeout(260);
+  assert.ok(Math.abs(await cardBackgroundAlpha() - .2) < .001, "80% 时卡片底色进一步变透");
+  await setCardTransparency(60);
+  await page.waitForTimeout(260);
   await page.locator("#background-done").click();
   assert.equal(await dialog.evaluate(node => node.open), false);
   await page.screenshot({ path: path.join(dataDirectory, "background-light.png") });
@@ -113,6 +144,9 @@ try {
   assert.equal(restored.savedBlur, "32");
   assert.equal(restored.blurVar, "32px");
   assert.equal(restored.cardBlurVar, "26px");
+  assert.equal(restored.transparency, "60");
+  assert.equal(restored.transparencySaved, "60");
+  assert.ok(Math.abs(await cardBackgroundAlpha() - .4) < .001, "刷新后卡片透明度保持");
   assert.equal(await page.locator("#background-blur").inputValue(), "32");
   assert.equal(await page.locator("#background-blur").isDisabled(), false);
   assert.match(await cardFilter(), /blur\(26px\)/, "刷新后卡片磨砂独立保留");
@@ -137,6 +171,9 @@ try {
     assert.ok(slider && slider.x >= 0 && slider.x + slider.width <= width, `磨砂滑杆越界 ${width}`);
     const cardSlider = await page.locator("#card-blur").boundingBox();
     assert.ok(cardSlider && cardSlider.x >= 0 && cardSlider.x + cardSlider.width <= width, `卡片磨砂滑杆越界 ${width}`);
+    assert.equal(await page.locator("#card-transparency").inputValue(), "60");
+    const transparencySlider = await page.locator("#card-transparency").boundingBox();
+    assert.ok(transparencySlider && transparencySlider.x >= 0 && transparencySlider.x + transparencySlider.width <= width, `卡片透明度滑杆越界 ${width}`);
     if (width === 375) await page.screenshot({ path: path.join(dataDirectory, "background-mobile-dialog.png") });
     await page.locator("#background-close").click();
   }
@@ -153,6 +190,8 @@ try {
   assert.equal(current.blurVar, "");
   assert.equal(current.cardBlurVar, "");
   assert.equal(current.savedBlur, "32");
+  assert.equal(current.transparency, "60");
+  assert.equal(current.transparencySaved, "60");
   assert.equal(await page.locator("#background-remove").isDisabled(), true);
   assert.equal(await page.locator("#background-blur").isDisabled(), true);
   assert.equal(await page.locator("#background-preview").evaluate(node => node.classList.contains("has-image")), false);
@@ -190,6 +229,9 @@ try {
   assert.equal(await page.locator("#card-blur").isDisabled(), false);
   assert.equal(await page.locator("#card-blur").inputValue(), "26");
   assert.match(await page.locator("#card-blur-hint").textContent(), /独立控制/);
+  assert.equal(await page.locator("#card-transparency").isVisible(), true);
+  assert.equal(await page.locator("#card-transparency").inputValue(), "60");
+  assert.match(await page.locator("#card-transparency-hint").textContent(), /透视/);
   const setCardBlur = value => page.locator("#card-blur").evaluate((input, value) => {
     input.value = String(value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -217,6 +259,10 @@ try {
   assert.equal((await state()).cardBlurVar, "");
   assert.match(await cardFilter(), /blur\(26px\)/, "恢复默认卡片磨砂");
   assert.equal(await page.evaluate(() => localStorage.getItem("yijian.cardBlur.v1")), "26");
+  await setCardTransparency(38);
+  await page.waitForTimeout(260);
+  assert.ok(Math.abs(await cardBackgroundAlpha() - .58) < .001, "深色主题恢复默认卡片透明度");
+  assert.equal(await page.evaluate(() => localStorage.getItem("yijian.cardTransparency.v1")), "38");
   await page.locator("#background-done").click();
 
   assert.deepEqual(errors, []);
