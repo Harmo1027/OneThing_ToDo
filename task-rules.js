@@ -40,6 +40,22 @@
 })(globalThis, function () {
   "use strict";
   const THREE_DAYS = 72 * 60 * 60 * 1000;
+  const ATTACHMENT_TYPES = Object.freeze({
+    docx: Object.freeze({ mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", label: "DOCX" }),
+    pdf: Object.freeze({ mime: "application/pdf", label: "PDF" }),
+    ppt: Object.freeze({ mime: "application/vnd.ms-powerpoint", label: "PPT" }),
+    pptx: Object.freeze({ mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation", label: "PPTX" }),
+    png: Object.freeze({ mime: "image/png", label: "PNG", image: true }),
+    jpg: Object.freeze({ mime: "image/jpeg", label: "JPG", image: true }),
+    jpeg: Object.freeze({ mime: "image/jpeg", label: "JPEG", image: true }),
+    gif: Object.freeze({ mime: "image/gif", label: "GIF", image: true }),
+    webp: Object.freeze({ mime: "image/webp", label: "WEBP", image: true }),
+    bmp: Object.freeze({ mime: "image/bmp", label: "BMP", image: true }),
+    avif: Object.freeze({ mime: "image/avif", label: "AVIF", image: true })
+  });
+  const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+  const MAX_ATTACHMENTS_PER_TASK = 8;
+  const ATTACHMENT_ID = /^[a-zA-Z0-9-]{1,100}$/;
   function validDueDate(value) {
     if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000")) return false;
     const date = new Date(`${value}T00:00:00Z`);
@@ -59,5 +75,19 @@
     if (due !== null && due - now < THREE_DAYS) return "不足 3 天";
     return task.priority === "urgent" ? "手动设为紧迫" : "一般";
   }
-  return { THREE_DAYS, validDueDate, deadline, isUrgent, urgentReason };
+  function attachmentExtension(name) {
+    if (typeof name !== "string") return "";
+    const match = /\.([a-zA-Z0-9]+)\s*$/.exec(name);
+    const extension = match ? match[1].toLowerCase() : "";
+    return Object.prototype.hasOwnProperty.call(ATTACHMENT_TYPES, extension) ? extension : "";
+  }
+  function validAttachmentName(name) {
+    return typeof name === "string" && name.length > 0 && name.length <= 180 && name === name.trim() && !/[\u0000-\u001f\u007f<>:"/\\|?*]/.test(name) && !/[. ]$/.test(name) && !/^\.+$/.test(name);
+  }
+  function validAttachment(value) {
+    if (!value || typeof value !== "object") return false;
+    const extension = typeof value.ext === "string" ? value.ext.toLowerCase() : "";
+    return typeof value.id === "string" && ATTACHMENT_ID.test(value.id) && validAttachmentName(value.name) && Number.isSafeInteger(value.size) && value.size > 0 && value.size <= MAX_ATTACHMENT_BYTES && Boolean(ATTACHMENT_TYPES[extension]) && attachmentExtension(value.name) === extension;
+  }
+  return { THREE_DAYS, validDueDate, deadline, isUrgent, urgentReason, ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS_PER_TASK, attachmentExtension, validAttachmentName, validAttachment };
 });

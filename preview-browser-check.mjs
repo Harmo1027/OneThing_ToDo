@@ -51,7 +51,8 @@ try {
   await settle();
   await page.locator("#task-heading").fill(title);
   await page.locator("#task-input").fill(content);
-  await page.locator("#task-homework").setChecked(true);
+  await page.locator('label[for="task-homework"]').click();
+  assert.equal(await page.locator("#task-homework").isChecked(), true);
   await page.locator("#task-priority").selectOption("urgent");
   await page.locator(".add-button").click();
   await page.waitForFunction(text => [...document.querySelectorAll("#task-list .task-card .task-title")].some(node => node.textContent === text), title);

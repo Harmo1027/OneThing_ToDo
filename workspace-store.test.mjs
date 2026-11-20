@@ -240,3 +240,28 @@ test("每日任务与当天完成状态保存恢复，兼容旧数据并拒绝�
     assert.throws(() => validateState({ ...fixture(), dailyTasks: invalid }));
   }
 });
+
+test("附件文件保存、读取与失效后清理", async () => {
+  const directory = await sandbox();
+  const store = createStore(directory);
+  const attachment = { id: "attach-1", name: "方案.docx", size: 9, ext: "docx" };
+  await store.saveAttachment("task-root", attachment.id, attachment.ext, Buffer.from("file-data"));
+  assert.equal((await store.readAttachment("task-root", attachment.id, attachment.ext)).toString(), "file-data");
+  const state = { version: 2, modifiedAt: Date.now(), groups: [], tasks: [{ id: "task-root", title: "附件任务", groupId: null, createdAt: 1000, pinnedAt: 0, attachments: [attachment] }], dailyTasks: [] };
+  const saved = await store.save(state, 0);
+  assert.deepEqual((await store.load()).state.tasks[0].attachments, [attachment]);
+  const attachmentFile = path.join(directory, ".attachments", "task-root", "attach-1.docx");
+  await access(attachmentFile);
+  state.tasks[0].attachments = [];
+  state.modifiedAt++;
+  await store.save(state, saved.revision);
+  assert.equal(await store.readAttachment("task-root", attachment.id, attachment.ext), null);
+  await assert.rejects(access(attachmentFile));
+  const badAttachments = [
+    [{ id: "bad/path", name: "方案.pdf", size: 1, ext: "pdf" }],
+    [{ id: "attach-2", name: "方案.txt", size: 1, ext: "txt" }],
+    [{ id: "attach-3", name: "方案.pdf", size: 0, ext: "pdf" }],
+    Array.from({ length: 9 }, (_, index) => ({ id: `attach-${index}`, name: "方案.pdf", size: 1, ext: "pdf" }))
+  ];
+  for (const attachments of badAttachments) assert.throws(() => validateState({ ...fixture(), tasks: [{ ...fixture().tasks[0], attachments }] }), /附件/);
+});

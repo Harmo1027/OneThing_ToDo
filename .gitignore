@@ -1,4 +1,5 @@
 .test-data/
+.attachments/
 node_modules/
 .todo-workspace.json
 *.todo.json

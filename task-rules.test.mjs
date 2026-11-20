@@ -27,3 +27,28 @@ test("手动紧迫无需截止日期，一般且无日期不自动紧迫，延�
   assert.equal(rules.isUrgent({ priority: "normal", dueDate: "2026-11-20" }, now), false);
   assert.equal(rules.isUrgent({ priority: "urgent", dueDate: "2026-11-20" }, now), true);
 });
+test("附件格式、名称、大小与元数据校验", () => {
+  assert.deepEqual(Object.keys(rules.ATTACHMENT_TYPES).sort(), ["avif", "bmp", "docx", "gif", "jpeg", "jpg", "pdf", "png", "ppt", "pptx", "webp"]);
+  for (const ext of ["docx", "pdf", "ppt", "pptx", "png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"]) assert.match(rules.ATTACHMENT_TYPES[ext].mime, /^(application|image)\//);
+  for (const ext of ["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"]) assert.equal(rules.ATTACHMENT_TYPES[ext].image, true);
+  assert.equal(rules.attachmentExtension("项目方案.PDF"), "pdf");
+  assert.equal(rules.attachmentExtension("答辩稿.pptx"), "pptx");
+  assert.equal(rules.attachmentExtension("截图.PNG"), "png");
+  assert.equal(rules.attachmentExtension("照片.jpeg"), "jpeg");
+  assert.equal(rules.attachmentExtension("说明.txt"), "");
+  assert.equal(rules.attachmentExtension("没有扩展名"), "");
+  assert.equal(rules.attachmentExtension("../危险.pdf"), "pdf");
+  assert.equal(rules.validAttachmentName("项目方案.pdf"), true);
+  assert.equal(rules.validAttachmentName("带 空格 的文档.docx"), true);
+  assert.equal(rules.validAttachmentName("末尾点.pdf."), false);
+  assert.equal(rules.validAttachmentName("../路径.pdf"), false);
+  assert.equal(rules.validAttachmentName(""), false);
+  const attachment = { id: "attach-1", name: "方案.pdf", size: 1024, ext: "pdf" };
+  assert.equal(rules.validAttachment(attachment), true);
+  assert.equal(rules.validAttachment({ ...attachment, id: "bad/id" }), false);
+  assert.equal(rules.validAttachment({ ...attachment, ext: "docx" }), false);
+  assert.equal(rules.validAttachment({ ...attachment, name: "方案.txt" }), false);
+  assert.equal(rules.validAttachment({ ...attachment, size: 0 }), false);
+  assert.equal(rules.validAttachment({ ...attachment, size: rules.MAX_ATTACHMENT_BYTES + 1 }), false);
+  assert.equal(rules.validAttachment({ ...attachment, size: 1.5 }), false);
+});

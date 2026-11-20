@@ -830,3 +830,138 @@ button:active:not(:disabled){scale:.96}
 .card-blur-control{margin-top:0}
 #card-blur-value{font-size:10px;font-weight:600;color:var(--blue);font-variant-numeric:tabular-nums}
 #card-blur{display:block;width:100%;height:22px;margin:0;padding:0;border:0;background:transparent;accent-color:var(--blue);cursor:pointer}
+
+/* 待办附件 */
+.attachment-badge{display:inline-flex;align-items:center;gap:3px;min-height:18px;padding:2px 6px 2px 5px;border:1px solid rgba(255,255,255,.55);border-radius:999px;background:rgba(255,255,255,.34);color:#5c7f9f;font-size:8px;line-height:1.4;white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.attachment-badge svg{width:11px;height:11px}
+.task-card.is-urgent .attachment-badge{color:#8d6cb3;border-color:rgba(255,255,255,.45);background:rgba(255,255,255,.28)}
+.task-card.is-completed .attachment-badge{color:#6f8b7c;border-color:rgba(255,255,255,.48);background:rgba(255,255,255,.28)}
+:root[data-theme="dark"] .attachment-badge{color:#a9c9e6;border-color:rgba(120,180,230,.22);background:rgba(76,194,255,.08)}
+:root[data-theme="dark"] .task-card.is-urgent .attachment-badge{color:#c4a9e6;border-color:rgba(180,150,220,.2);background:rgba(160,120,220,.08)}
+:root[data-theme="dark"] .task-card.is-completed .attachment-badge{color:#91b39f;border-color:rgba(120,170,145,.2);background:rgba(100,160,130,.08)}
+.task-preview-attachments{margin-top:24px;padding-top:18px;border-top:1px solid rgba(205,222,240,.85);user-select:none;-webkit-user-select:none}
+.task-preview-attachments-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.task-preview-attachments-heading{display:flex;align-items:center;gap:7px;min-width:0}
+.task-preview-attachments-icon{display:grid;place-items:center;width:24px;height:24px;border:1px solid rgba(0,120,212,.16);border-radius:7px;background:rgba(0,120,212,.08);color:var(--blue)}
+.task-preview-attachments-icon svg{width:14px;height:14px}
+.task-preview-attachments-heading h3{margin:0;font-size:12px;font-weight:650;color:#2f4764;letter-spacing:.2px}
+.task-preview-attachments-heading .count-badge{min-width:19px;min-height:18px;background:rgba(0,120,212,.1);color:var(--blue)}
+.attachment-add{display:inline-flex;align-items:center;gap:5px;min-height:29px;padding:5px 10px;border:1px solid rgba(0,120,212,.2);border-radius:8px;background:rgba(0,120,212,.08);color:var(--blue);font-size:10px;font-weight:600;white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:background .15s,border-color .15s,color .15s}
+.attachment-add svg{width:13px;height:13px}
+.attachment-add:hover{background:rgba(0,120,212,.16);border-color:rgba(0,120,212,.38)}
+.attachment-add:disabled{opacity:.5;cursor:default}
+.attachment-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:13px}
+.attachment-image-card{margin:0;min-width:0;border:1px solid rgba(190,215,240,.65);border-radius:12px;background:rgba(255,255,255,.36);overflow:hidden;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.attachment-image-frame{position:relative;display:grid;place-items:center;width:100%;min-height:90px;background:rgba(230,241,252,.5);overflow:hidden}
+.attachment-image-preview{display:block;width:100%;height:auto;max-height:250px;object-fit:contain}
+.attachment-image-frame.is-unavailable::after{content:"图片需要本地保存服务";padding:24px 12px;color:#8fa2b7;font-size:9px;text-align:center;line-height:1.7}
+.attachment-image-frame.is-unavailable .attachment-image-preview{display:none}
+.attachment-image-caption{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;padding:8px 9px}
+.attachment-image-meta{display:grid;gap:2px;min-width:0}
+.attachment-image-name{font-size:10.5px;line-height:1.5;color:#2f4764;font-weight:600;overflow-wrap:anywhere;word-break:break-word}
+.attachment-image-detail{font-size:9px;color:#93a3b6}
+.task-preview-attachments-list{display:grid;gap:8px;list-style:none;margin:13px 0 0;padding:0}
+.attachment-item{display:flex;align-items:center;gap:10px;min-width:0;padding:9px 10px;border:1px solid rgba(190,215,240,.65);border-radius:11px;background:rgba(255,255,255,.36);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.attachment-type{display:inline-grid;place-items:center;flex:none;min-width:42px;height:26px;padding:0 6px;border-radius:7px;font-size:8px;font-weight:750;letter-spacing:.5px;line-height:1}
+.attachment-type.is-docx{color:#0063b1;background:rgba(0,120,212,.12);border:1px solid rgba(0,120,212,.18)}
+.attachment-type.is-pdf{color:#b04451;background:rgba(196,71,87,.1);border:1px solid rgba(196,71,87,.18)}
+.attachment-type.is-ppt,.attachment-type.is-pptx{color:#a05a16;background:rgba(214,126,40,.11);border:1px solid rgba(214,126,40,.2)}
+.attachment-copy{flex:1;min-width:0;display:grid;gap:3px}
+.attachment-name{font-size:11px;line-height:1.55;color:#2f4764;font-weight:600;overflow-wrap:anywhere;word-break:break-word}
+.attachment-meta{font-size:9px;color:#93a3b6}
+.attachment-actions{display:flex;gap:2px;flex:none}
+.attachment-download,.attachment-remove{min-height:26px;padding:4px 6px;border:0;border-radius:6px;background:transparent;color:var(--blue);font-size:9px;font-weight:600;white-space:nowrap;transition:background .15s,color .15s}
+.attachment-download:hover{background:rgba(0,120,212,.1);color:var(--blue-dark)}
+.attachment-remove{color:#a8787d}
+.attachment-remove:hover{background:rgba(196,71,87,.1);color:#c44757}
+.task-preview-attachments-empty{margin:13px 0 0;padding:12px 10px;border:1px dashed rgba(183,205,226,.7);border-radius:10px;background:rgba(255,255,255,.22);color:#8fa2b7;font-size:10px;line-height:1.7}
+:root[data-theme="dark"] .task-preview-attachments{border-top-color:var(--line)}
+:root[data-theme="dark"] .task-preview-attachments-icon{border-color:rgba(76,194,255,.22);background:rgba(76,194,255,.1);color:#7dd6ff}
+:root[data-theme="dark"] .task-preview-attachments-heading h3{color:var(--ink)}
+:root[data-theme="dark"] .task-preview-attachments-heading .count-badge{background:rgba(76,194,255,.12);color:#7dd6ff}
+:root[data-theme="dark"] .attachment-add{border-color:rgba(76,194,255,.26);background:rgba(76,194,255,.1);color:#7dd6ff}
+:root[data-theme="dark"] .attachment-add:hover{background:rgba(76,194,255,.18);border-color:rgba(76,194,255,.42)}
+:root[data-theme="dark"] .attachment-image-card{border-color:rgba(120,160,200,.22);background:rgba(255,255,255,.045)}
+:root[data-theme="dark"] .attachment-image-frame{background:rgba(8,16,26,.5)}
+:root[data-theme="dark"] .attachment-image-frame.is-unavailable::after{color:var(--ink-3)}
+:root[data-theme="dark"] .attachment-image-name{color:var(--ink)}
+:root[data-theme="dark"] .attachment-image-detail{color:var(--ink-3)}
+:root[data-theme="dark"] .attachment-item{border-color:rgba(120,160,200,.22);background:rgba(255,255,255,.045)}
+:root[data-theme="dark"] .attachment-type.is-docx{color:#8bd0ff;background:rgba(76,194,255,.12);border-color:rgba(76,194,255,.22)}
+:root[data-theme="dark"] .attachment-type.is-pdf{color:#ff9ca5;background:rgba(220,90,105,.13);border-color:rgba(220,90,105,.24)}
+:root[data-theme="dark"] .attachment-type.is-ppt,:root[data-theme="dark"] .attachment-type.is-pptx{color:#ffc07a;background:rgba(214,126,40,.14);border-color:rgba(214,126,40,.26)}
+:root[data-theme="dark"] .attachment-name{color:var(--ink)}
+:root[data-theme="dark"] .attachment-meta{color:var(--ink-3)}
+:root[data-theme="dark"] .attachment-download{color:#7dd6ff}
+:root[data-theme="dark"] .attachment-download:hover{background:rgba(76,194,255,.12);color:#bcecff}
+:root[data-theme="dark"] .attachment-remove{color:#d69ba1}
+:root[data-theme="dark"] .attachment-remove:hover{background:rgba(220,90,105,.14);color:#ffb0b7}
+:root[data-theme="dark"] .task-preview-attachments-empty{border-color:rgba(120,160,200,.25);background:rgba(255,255,255,.03);color:var(--ink-3)}
+@media(max-width:700px){
+  .task-preview-attachments{margin-top:18px;padding-top:14px}
+  .attachment-add{min-height:28px;padding:4px 8px;font-size:9px}
+  .attachment-item{gap:8px;padding:8px}
+  .attachment-type{min-width:38px;height:24px;font-size:7.5px}
+  .attachment-name{font-size:10.5px}
+  .attachment-gallery{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}
+  .attachment-image-preview{max-height:200px}
+  .task-preview-attachments-empty{font-size:9px;padding:10px 9px}
+}
+@media(max-width:420px){
+  .attachment-item{flex-wrap:wrap}
+  .attachment-actions{margin-left:auto}
+  .attachment-download,.attachment-remove{min-height:24px;padding:3px 5px;font-size:8.5px}
+  .task-preview-attachments-heading h3{font-size:11px}
+  .attachment-gallery{grid-template-columns:minmax(0,1fr)}
+  .attachment-image-preview{max-height:220px}
+}
+
+/* Markdown 正文 */
+.markdown-body{white-space:normal;overflow-wrap:anywhere;min-width:0}
+.markdown-body > :first-child{margin-top:0}
+.markdown-body > :last-child{margin-bottom:0}
+.markdown-body p{margin:0 0 .7em;line-height:inherit}
+.markdown-body .md-heading{margin:.85em 0 .42em;line-height:1.35;font-weight:700;color:inherit}
+.markdown-body .md-h1{font-size:1.5em}
+.markdown-body .md-h2{font-size:1.32em}
+.markdown-body .md-h3{font-size:1.18em}
+.markdown-body .md-h4{font-size:1.08em}
+.markdown-body .md-h5,.markdown-body .md-h6{font-size:1em}
+.markdown-body ul,.markdown-body ol{margin:.35em 0 .7em;padding-left:1.35em}
+.markdown-body li{margin:.15em 0;line-height:inherit}
+.markdown-body li::marker{color:var(--blue)}
+.markdown-body .md-task-item{list-style:none;display:flex;gap:.45em;align-items:flex-start}
+.markdown-body .md-task-box{display:inline-grid;place-items:center;flex:none;width:.95em;height:.95em;margin-top:.38em;border:1.4px solid currentColor;border-radius:3px;opacity:.55;color:var(--blue)}
+.markdown-body .md-task-box.is-done{opacity:1;background:var(--blue);border-color:var(--blue);color:#fff}
+.markdown-body .md-task-box.is-done::after{content:"✓";font-size:.65em;line-height:1;font-weight:700}
+.markdown-body blockquote{margin:.55em 0;padding:.45em .85em;border-left:3px solid rgba(0,120,212,.32);border-radius:0 8px 8px 0;background:rgba(0,120,212,.06);color:#5b7490}
+.markdown-body code{font-family:"Cascadia Code","Consolas",monospace;font-size:.9em;padding:.12em .35em;border-radius:4px;background:rgba(30,60,100,.08);color:#2b557f}
+.markdown-body pre{margin:.6em 0;padding:10px 12px;max-width:100%;overflow:auto;border:1px solid rgba(170,200,230,.45);border-radius:8px;background:rgba(240,247,255,.62)}
+.markdown-body pre code{padding:0;background:none;color:#2b4e71;white-space:pre}
+.markdown-body a{color:var(--blue);font-weight:500;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px;overflow-wrap:anywhere}
+.markdown-body a:hover{color:var(--blue-dark)}
+.markdown-body hr{margin:1em 0;border:0;border-top:1px solid rgba(150,180,210,.35)}
+.markdown-body del{opacity:.7}
+.markdown-body strong{font-weight:700}
+.markdown-body em{font-style:italic}
+.task-card .markdown-body{font-size:12px;line-height:1.85}
+.task-card .task-title.markdown-body{font-size:14px;line-height:1.8}
+.task-card .markdown-body .md-heading{margin:.6em 0 .25em}
+.task-card .markdown-body .md-h1{font-size:1.25em}
+.task-card .markdown-body .md-h2{font-size:1.15em}
+.task-card .markdown-body .md-h3,.task-card .markdown-body .md-h4,.task-card .markdown-body .md-h5,.task-card .markdown-body .md-h6{font-size:1.05em}
+.task-card .markdown-body p{margin:0 0 .45em}
+.task-card .markdown-body ul,.task-card .markdown-body ol{margin:.22em 0 .5em;padding-left:1.15em}
+.task-card .markdown-body li{margin:.08em 0}
+.task-card .markdown-body blockquote{padding:.3em .6em;margin:.4em 0}
+.task-card .markdown-body pre{padding:7px 9px;font-size:.9em;line-height:1.6}
+.task-preview-content.markdown-body{font-size:15px;line-height:1.95;white-space:normal}
+.focus-overlay-task-content.markdown-body{line-height:1.9;white-space:normal}
+:root[data-theme="dark"] .markdown-body blockquote{border-left-color:rgba(76,194,255,.35);background:rgba(76,194,255,.07);color:var(--ink-2)}
+:root[data-theme="dark"] .markdown-body code{background:rgba(76,194,255,.1);color:#a9d9ff}
+:root[data-theme="dark"] .markdown-body pre{border-color:rgba(120,160,200,.28);background:rgba(8,16,26,.5)}
+:root[data-theme="dark"] .markdown-body pre code{color:#bfe5ff}
+:root[data-theme="dark"] .markdown-body a{color:#7dd6ff}
+:root[data-theme="dark"] .markdown-body a:hover{color:#bcecff}
+:root[data-theme="dark"] .markdown-body li::marker{color:var(--blue)}
+:root[data-theme="dark"] .markdown-body hr{border-top-color:rgba(120,160,200,.3)}

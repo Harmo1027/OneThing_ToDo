@@ -90,7 +90,11 @@ try {
   assert.equal(await page.locator("#focus-overlay-total").textContent(), "1 分钟专注");
   assert.equal(await page.locator("#focus-overlay-task").isVisible(), true);
   assert.equal(await page.locator("#focus-overlay-task-title").textContent(), "季度汇报");
-  assert.equal(await page.locator("#focus-overlay-task-content").textContent(), focusContent, "专注界面完整显示待办正文");
+  const focusTaskContent = page.locator("#focus-overlay-task-content");
+  assert.equal(await focusTaskContent.evaluate(node => node.classList.contains("markdown-body")), true);
+  assert.equal(await focusTaskContent.locator("ol li").count(), 4);
+  assert.deepEqual(await focusTaskContent.locator("ol li").allTextContents(), ["整理第三季度数据", "完成演示文稿结构", "核对关键指标口径", "预留十分钟预演"]);
+  assert.equal(await focusTaskContent.textContent(), "整理第三季度数据完成演示文稿结构核对关键指标口径预留十分钟预演", "专注界面完整显示待办正文");
   assert.equal(await page.locator("#focus-overlay-task-group").textContent(), "工作");
   assert.equal(await page.locator("#focus-overlay-task-due").textContent(), "11/20 截止");
   const taskVisibility = await page.locator("#focus-overlay-task").evaluate(node => ({ scrollHeight: node.scrollHeight, clientHeight: node.clientHeight }));

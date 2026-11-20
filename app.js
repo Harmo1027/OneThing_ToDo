@@ -10,6 +10,11 @@
   const pinnedList = $("#pinned-list");
   const urgentList = $("#urgent-list");
   const rules = globalThis.TodoRules;
+  const markdown = globalThis.TodoMarkdown || {
+    hasMarkdown: () => false,
+    renderInline: value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character])),
+    render: value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]))
+  };
   const specialGroups = [
     { id: "special:homework", field: "homework", name: "作业", icon: "homework" },
     { id: "special:longterm", field: "longTerm", name: "长期事项", icon: "longterm" }
@@ -28,6 +33,13 @@
   const previewBody = $(".task-preview-body");
   const previewHint = $("#task-preview-hint");
   const previewCopy = $("#task-preview-copy");
+  const previewAttachmentsSection = $("#task-preview-attachments");
+  const previewAttachmentGallery = $("#task-preview-attachment-gallery");
+  const previewAttachmentsList = $("#task-preview-attachments-list");
+  const previewAttachmentsCount = $("#task-preview-attachments-count");
+  const previewAttachmentsEmpty = $("#task-preview-attachments-empty");
+  const previewAttachButton = $("#task-preview-attach");
+  const attachmentInput = $("#attachment-file");
   const toggleCards = $("#toggle-cards");
   const toggleCompletedCards = $("#toggle-completed-cards");
   const reviewView = $("#review-view");
@@ -83,6 +95,7 @@
   let toastTimer;
   let editing = null;
   let previewTaskId = "";
+  let attachmentTaskId = "";
   let previewSourceCard = null;
   let previewAnimation = null;
   let previewClosing = false;
@@ -599,7 +612,13 @@
     }).map(task => {
       const completed = task.completed === true;
       const reviews = completed && Array.isArray(task.reviews) && task.reviews.length === 4 && task.reviews.every(validTime) ? task.reviews.slice() : [0, 0, 0, 0];
-      return { id: task.id, title: task.content === undefined ? "" : task.title.trim().slice(0, 120), content: (task.content === undefined ? task.title : task.content).trim().slice(0, 5000), collapsed: task.collapsed === true, dueDate: rules.validDueDate(task.dueDate) ? task.dueDate : null, priority: task.priority === "urgent" ? "urgent" : "normal", homework: task.homework === true, longTerm: task.longTerm === true, completed, completedAt: completed && validTime(task.completedAt) ? task.completedAt : 0, reviews, createdAt: task.createdAt, pinnedAt: validTime(task.pinnedAt) ? task.pinnedAt : 0, groupId: groupIds.has(task.groupId) ? task.groupId : null };
+      const attachmentIds = new Set();
+      const attachments = (Array.isArray(task.attachments) ? task.attachments : []).filter(attachment => {
+        if (!rules.validAttachment(attachment) || attachmentIds.has(attachment.id)) return false;
+        attachmentIds.add(attachment.id);
+        return true;
+      }).slice(0, rules.MAX_ATTACHMENTS_PER_TASK).map(attachment => ({ id: attachment.id, name: attachment.name, size: attachment.size, ext: attachment.ext.toLowerCase() }));
+      return { id: task.id, title: task.content === undefined ? "" : task.title.trim().slice(0, 120), content: (task.content === undefined ? task.title : task.content).trim().slice(0, 5000), collapsed: task.collapsed === true, dueDate: rules.validDueDate(task.dueDate) ? task.dueDate : null, priority: task.priority === "urgent" ? "urgent" : "normal", homework: task.homework === true, longTerm: task.longTerm === true, completed, completedAt: completed && validTime(task.completedAt) ? task.completedAt : 0, reviews, attachments, createdAt: task.createdAt, pinnedAt: validTime(task.pinnedAt) ? task.pinnedAt : 0, groupId: groupIds.has(task.groupId) ? task.groupId : null };
     });
     const dailyIds = new Set();
     const dailyTasks = (Array.isArray(raw.dailyTasks) ? raw.dailyTasks : []).filter(task => {
@@ -670,6 +689,7 @@
       if (before.homework !== task.homework) fields.push(task.homework ? "加入作业" : "移出作业");
       if (before.longTerm !== task.longTerm) fields.push(task.longTerm ? "标为长期事项" : "取消长期事项");
       if (before.collapsed !== task.collapsed) fields.push(task.collapsed ? "折叠卡片" : "展开卡片");
+      if (JSON.stringify(before.attachments || []) !== JSON.stringify(task.attachments || [])) fields.push("附件");
       if (!before.reviews || before.reviews.some((value, index) => value !== task.reviews[index])) fields.push("艾宾浩斯复习打卡");
       if (fields.length) changes.push({ kind: "update", text: `修改待办「${label}」：${fields.join("、")}` });
     }
@@ -750,12 +770,13 @@
   function parseText(heading, rawContent) {
     let title = heading.trim();
     let content = rawContent.trim();
-    // The first **…** span, or text after ** until the line ends, becomes the title.
-    const marker = /\*\*([^\r\n]*?)(?:\*\*|(?=\r?\n|$))/.exec(content);
-    if (marker && marker[1].trim()) {
-      const replacement = title ? marker[1] : "";
-      if (!title) title = marker[1].trim();
-      content = `${content.slice(0, marker.index)}${replacement}${content.slice(marker.index + marker[0].length)}`.trim();
+    // 未单独填写标题时，正文开头的 **…** 仍可作为标题标记；已填写标题时正文保留 Markdown。
+    if (!title) {
+      const marker = /^\*\*([^\r\n]*?)(?:\*\*|(?=\r?\n|$))/.exec(content);
+      if (marker && marker[1].trim()) {
+        title = marker[1].trim();
+        content = content.slice(marker[0].length).trim();
+      }
     }
     return { title, content };
   }
@@ -926,12 +947,35 @@
       if (!task.completed && rules.deadline(task) < Date.now()) due.textContent = `${task.dueDate.slice(5).replace("-", "/")} 已逾期`;
       metadata.append(due);
     }
+    if (task.attachments?.length) {
+      const badge = element("span", "attachment-badge");
+      badge.append(icon("paperclip"), element("span", "", String(task.attachments.length)));
+      badge.setAttribute("role", "img");
+      badge.setAttribute("aria-label", `附件 ${task.attachments.length} 个`);
+      badge.title = `附件（${task.attachments.length}）：${task.attachments.map(attachment => attachment.name).join("、")}`;
+      metadata.append(badge);
+    }
     const content = element("div", "task-content");
     content.id = contentId;
-    const title = element(task.title ? "h3" : "p", `task-title${task.title ? " has-heading" : ""}`, task.collapsed ? taskLabel(task) : task.title || task.content);
+    let title;
+    if (task.title) {
+      title = element("h3", "task-title has-heading");
+      title.innerHTML = markdown.renderInline(task.title);
+    } else if (!task.collapsed && markdown.hasMarkdown(task.content)) {
+      title = element("div", "task-title markdown-body");
+      title.innerHTML = markdown.render(task.content);
+    } else {
+      title = element("p", "task-title", task.collapsed ? taskLabel(task) : task.content);
+    }
     content.append(title);
     if (task.title && task.content) {
-      const description = element("p", "task-description", task.content);
+      const description = element("div", "task-description");
+      if (markdown.hasMarkdown(task.content)) {
+        description.classList.add("markdown-body");
+        description.innerHTML = markdown.render(task.content);
+      } else {
+        description.textContent = task.content;
+      }
       description.hidden = task.collapsed;
       content.append(description);
     }
@@ -956,7 +1000,7 @@
     }
     const pin = button("pin", `${task.pinnedAt ? "取消置顶" : "置顶"}：${taskLabel(task)}`, "pin");
     pin.setAttribute("aria-pressed", String(Boolean(task.pinnedAt)));
-    actions.append(button("edit", `编辑：${taskLabel(task)}`, "edit"), pin, button("delete", `删除：${taskLabel(task)}`, "trash"));
+    actions.append(button("edit", `编辑：${taskLabel(task)}`, "edit"), pin, button("attach", `添加附件：${taskLabel(task)}`, "paperclip"), button("delete", `删除：${taskLabel(task)}`, "trash"));
     const completeRow = element("div", "complete-row");
     completeRow.append(complete);
     const bottomRow = element("div", "card-bottom-row");
@@ -998,16 +1042,221 @@
     const created = element("span", "task-preview-created", `创建于 ${new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "numeric", day: "numeric" }).format(task.createdAt)}`);
     created.title = new Date(task.createdAt).toLocaleString("zh-CN");
     previewMeta.append(created);
-    previewTitle.textContent = task.title;
+    previewTitle.innerHTML = task.title ? markdown.renderInline(task.title) : "";
     previewTitle.hidden = !task.title;
-    previewContent.textContent = task.content;
+    if (task.content && markdown.hasMarkdown(task.content)) {
+      previewContent.classList.add("markdown-body");
+      previewContent.innerHTML = markdown.render(task.content);
+    } else {
+      previewContent.classList.remove("markdown-body");
+      previewContent.textContent = task.content;
+    }
     previewContent.hidden = !task.content;
     previewDialog.setAttribute("aria-label", `待办详情：${taskLabel(task)}`);
     previewCopy.textContent = "复制内容";
     previewCopy.classList.remove("is-copied");
     previewHint.textContent = "选中文字即可复制";
+    renderAttachments(task);
     clearTimeout(copyFeedbackTimer);
   }
+  function attachmentTypeInfo(attachment) {
+    return rules.ATTACHMENT_TYPES[attachment.ext] || { label: String(attachment.ext || "").toUpperCase() };
+  }
+  function formatAttachmentSize(bytes) {
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+    if (bytes >= 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return `${bytes} B`;
+  }
+  function attachmentActions(attachment) {
+    const actions = element("div", "attachment-actions");
+    const download = element("button", "attachment-download", "下载");
+    download.type = "button";
+    download.dataset.attachmentId = attachment.id;
+    download.title = `下载附件：${attachment.name}`;
+    download.setAttribute("aria-label", download.title);
+    const remove = element("button", "attachment-remove", "移除");
+    remove.type = "button";
+    remove.dataset.attachmentId = attachment.id;
+    remove.title = `移除附件：${attachment.name}`;
+    remove.setAttribute("aria-label", remove.title);
+    actions.append(download, remove);
+    return actions;
+  }
+  function renderAttachments(task) {
+    const attachments = task.attachments || [];
+    const images = attachments.filter(attachment => rules.ATTACHMENT_TYPES[attachment.ext]?.image);
+    const files = attachments.filter(attachment => !rules.ATTACHMENT_TYPES[attachment.ext]?.image);
+    previewAttachmentsCount.textContent = String(attachments.length);
+    previewAttachmentsEmpty.hidden = attachments.length > 0;
+    previewAttachButton.disabled = attachments.length >= rules.MAX_ATTACHMENTS_PER_TASK;
+    previewAttachButton.title = previewAttachButton.disabled ? `每个待办最多 ${rules.MAX_ATTACHMENTS_PER_TASK} 个附件` : "添加文档或图片附件";
+    previewAttachmentGallery.hidden = images.length === 0;
+    previewAttachmentGallery.replaceChildren(...images.map(attachment => {
+      const card = element("figure", "attachment-image-card");
+      const frame = element("div", "attachment-image-frame");
+      const image = element("img", "attachment-image-preview");
+      image.alt = attachment.name;
+      image.loading = "lazy";
+      image.decoding = "async";
+      if (saveToken) image.src = `/api/attachments/${encodeURIComponent(task.id)}/${encodeURIComponent(attachment.id)}.${attachment.ext}?token=${encodeURIComponent(saveToken)}`;
+      else frame.classList.add("is-unavailable");
+      image.addEventListener("error", () => frame.classList.add("is-unavailable"));
+      frame.append(image);
+      const caption = element("figcaption", "attachment-image-caption");
+      const copy = element("div", "attachment-image-meta");
+      copy.append(element("strong", "attachment-image-name", attachment.name), element("span", "attachment-image-detail", `${attachmentTypeInfo(attachment).label} · ${formatAttachmentSize(attachment.size)}`));
+      caption.append(copy, attachmentActions(attachment));
+      card.append(frame, caption);
+      return card;
+    }));
+    previewAttachmentsList.hidden = files.length === 0;
+    previewAttachmentsList.replaceChildren(...files.map(attachment => {
+      const item = element("li", "attachment-item");
+      const type = element("span", `attachment-type is-${attachment.ext}`, attachmentTypeInfo(attachment).label);
+      const copy = element("div", "attachment-copy");
+      copy.append(element("strong", "attachment-name", attachment.name), element("span", "attachment-meta", `${formatAttachmentSize(attachment.size)} · 本地附件`));
+      item.append(type, copy, attachmentActions(attachment));
+      return item;
+    }));
+  }
+  async function ensureAttachmentService() {
+    if (!["http:", "https:"].includes(location.protocol)) {
+      notify("附件需要本地保存服务，请通过「启动待办.cmd」打开页面");
+      return false;
+    }
+    if (!localAvailable) await connectLocal();
+    if (!localAvailable || !saveToken) {
+      notify("附件需要本地保存服务，请先运行「启动待办.cmd」");
+      return false;
+    }
+    return true;
+  }
+  function openAttachmentPicker(taskId) {
+    const task = state.tasks.find(item => item.id === taskId);
+    if (!task) return;
+    if ((task.attachments || []).length >= rules.MAX_ATTACHMENTS_PER_TASK) {
+      notify(`每个待办最多添加 ${rules.MAX_ATTACHMENTS_PER_TASK} 个附件`);
+      return;
+    }
+    attachmentTaskId = taskId;
+    attachmentInput.value = "";
+    attachmentInput.click();
+  }
+  async function uploadAttachmentFile(taskId, file) {
+    const response = await fetch("/api/attachments", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-Todo-Token": saveToken,
+        "X-Task-Id": taskId,
+        "X-File-Name": encodeURIComponent(file.name)
+      },
+      body: file,
+      signal: AbortSignal.timeout(30000)
+    });
+    let result = {};
+    try { result = await response.json(); } catch { /* The error status still carries the useful failure. */ }
+    if (!response.ok) {
+      if (response.status === 404 || response.status === 405) throw new Error("本地服务版本较旧，请重启「启动待办.cmd」后再添加附件");
+      throw new Error(result.error || `附件上传失败（${response.status}）`);
+    }
+    if (!result.attachment || !rules.validAttachment(result.attachment)) throw new Error("服务器返回的附件信息无效");
+    return { id: result.attachment.id, name: result.attachment.name, size: result.attachment.size, ext: result.attachment.ext.toLowerCase() };
+  }
+  async function addAttachments(taskId, files) {
+    const task = state.tasks.find(item => item.id === taskId);
+    if (!task) { notify("待办不存在，无法添加附件"); return; }
+    const remaining = Math.max(0, rules.MAX_ATTACHMENTS_PER_TASK - (task.attachments || []).length);
+    if (!remaining) { notify(`每个待办最多添加 ${rules.MAX_ATTACHMENTS_PER_TASK} 个附件`); return; }
+    if (!await ensureAttachmentService()) return;
+    const candidates = [];
+    const errors = [];
+    for (const file of files) {
+      if (candidates.length >= remaining) { errors.push(`每个待办最多添加 ${rules.MAX_ATTACHMENTS_PER_TASK} 个附件`); break; }
+      const ext = rules.attachmentExtension(file.name);
+      if (!ext || !rules.validAttachmentName(file.name)) { errors.push(`${file.name}：仅支持文档或常用图片`); continue; }
+      if (!file.size) { errors.push(`${file.name}：文件为空`); continue; }
+      if (file.size > rules.MAX_ATTACHMENT_BYTES) { errors.push(`${file.name}：超过 ${rules.MAX_ATTACHMENT_BYTES / (1024 * 1024)} MB`); continue; }
+      candidates.push({ file, ext });
+    }
+    if (!candidates.length) { notify(errors.join("；") || "没有可添加的附件"); return; }
+    notify(`正在添加附件（${candidates.length}）…`);
+    const uploaded = [];
+    for (const { file } of candidates) {
+      try { uploaded.push(await uploadAttachmentFile(taskId, file)); }
+      catch (error) { errors.push(`${file.name}：${error.message}`); }
+    }
+    if (!uploaded.length) { notify(errors.join("；") || "附件添加失败"); return; }
+    const latest = state.tasks.find(item => item.id === taskId);
+    if (!latest) { notify("待办已被删除，附件未能关联"); return; }
+    const existingIds = new Set((latest.attachments || []).map(attachment => attachment.id));
+    const fresh = uploaded.filter(attachment => !existingIds.has(attachment.id));
+    latest.attachments = [...(latest.attachments || []), ...fresh].slice(0, rules.MAX_ATTACHMENTS_PER_TASK);
+    commit(`已添加 ${fresh.length} 个附件，点击「本地保存」写入本地文件`);
+    if (errors.length) notify(`部分附件未添加：${errors.slice(0, 2).join("；")}`);
+  }
+  async function downloadAttachment(taskId, attachment) {
+    if (!attachment || !rules.validAttachment(attachment)) {
+      notify("附件信息无效，无法下载");
+      return;
+    }
+    if (!await ensureAttachmentService()) return;
+    const url = `/api/attachments/${encodeURIComponent(taskId)}/${encodeURIComponent(attachment.id)}.${encodeURIComponent(attachment.ext)}`;
+    const request = () => fetch(url, { cache: "no-store", headers: { "X-Todo-Token": saveToken } });
+    try {
+      let response = await request();
+      if (response.status === 403) {
+        await connectLocal();
+        if (localAvailable) response = await request();
+      }
+      if (!response.ok) {
+        let result = {};
+        try { result = await response.json(); } catch { /* Use the status fallback below. */ }
+        throw new Error(result.error || `下载失败（${response.status}）`);
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = attachment.name;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      notify(`开始下载「${attachment.name}」`);
+    } catch (error) {
+      notify(`附件下载失败：${error.message}`);
+    }
+  }
+  function removeAttachment(taskId, attachmentId) {
+    const task = state.tasks.find(item => item.id === taskId);
+    if (!task) return;
+    const attachment = (task.attachments || []).find(item => item.id === attachmentId);
+    if (!attachment) return;
+    task.attachments = task.attachments.filter(item => item.id !== attachmentId);
+    commit(`已移除附件「${attachment.name}」，点击「本地保存」后清理本地文件`);
+  }
+  attachmentInput.addEventListener("change", async () => {
+    const files = [...(attachmentInput.files || [])];
+    const taskId = attachmentTaskId;
+    attachmentTaskId = "";
+    attachmentInput.value = "";
+    if (!taskId || !files.length) return;
+    await addAttachments(taskId, files);
+  });
+  previewAttachButton.addEventListener("click", () => {
+    if (previewTaskId) openAttachmentPicker(previewTaskId);
+  });
+  previewAttachmentsSection.addEventListener("click", event => {
+    const action = event.target.closest("button[data-attachment-id]");
+    if (!action) return;
+    const task = state.tasks.find(item => item.id === previewTaskId);
+    const attachment = task?.attachments?.find(item => item.id === action.dataset.attachmentId);
+    if (!task || !attachment) return;
+    if (action.classList.contains("attachment-download")) downloadAttachment(task.id, attachment);
+    else if (action.classList.contains("attachment-remove")) removeAttachment(task.id, attachment.id);
+  });
   function openTaskPreview(task, card) {
     if (previewDialog.open) return;
     previewTaskId = task.id;
@@ -1257,6 +1506,8 @@
       } else if (target.dataset.action === "pin") {
         task.pinnedAt = task.pinnedAt ? 0 : state.tasks.reduce((latest, item) => Math.max(latest, item.pinnedAt + 1), Date.now());
         commit(task.pinnedAt ? task.longTerm ? "已记录置顶状态，长期事项不在右侧置顶区展示" : task.completed ? "已记录置顶状态，取消完成后会回到右侧" : "已置顶，切换分组也能看见" : "已取消置顶", { id: task.id, area: card.dataset.area, action: "pin" });
+      } else if (target.dataset.action === "attach") {
+        openAttachmentPicker(task.id);
       } else if (target.dataset.action === "complete") {
         const nextCompleted = !task.completed;
         task.completedAt = nextCompleted ? state.tasks.reduce((latest, item) => Math.max(latest, item.completedAt + 1), Date.now()) : 0;
@@ -1305,7 +1556,7 @@
     const dueDate = $("#task-due-date").value || null;
     if (dueDate && !rules.validDueDate(dueDate)) { notify("请选择有效的截止日期"); return; }
     const categories = readSpecialFields("task");
-    state.tasks.push({ id: makeId(), ...text, ...categories, collapsed: false, dueDate, priority: $("#task-priority").value, completed: false, completedAt: 0, reviews: [0, 0, 0, 0], createdAt: Date.now(), pinnedAt: 0, groupId: ["all", "ungrouped"].includes(activeGroup) || specialGroup(activeGroup) ? null : activeGroup });
+    state.tasks.push({ id: makeId(), ...text, ...categories, collapsed: false, dueDate, priority: $("#task-priority").value, completed: false, completedAt: 0, reviews: [0, 0, 0, 0], attachments: [], createdAt: Date.now(), pinnedAt: 0, groupId: ["all", "ungrouped"].includes(activeGroup) || specialGroup(activeGroup) ? null : activeGroup });
     input.value = "";
     headingInput.value = "";
     $("#task-due-date").value = "";
@@ -2003,15 +2254,22 @@
       focusOverlayTaskDue.hidden = true;
       focusOverlayTaskTitle.textContent = "";
       focusOverlayTaskContent.textContent = "";
+      focusOverlayTaskContent.classList.remove("markdown-body");
       return;
     }
     focusOverlayTaskGroup.replaceChildren(icon(task.groupId ? "folder" : "inbox"), element("span", "", groupName(task.groupId)));
     const due = focusTaskDueText(task);
     focusOverlayTaskDue.textContent = due;
     focusOverlayTaskDue.hidden = !due;
-    focusOverlayTaskTitle.textContent = task.title;
+    focusOverlayTaskTitle.innerHTML = task.title ? markdown.renderInline(task.title) : "";
     focusOverlayTaskTitle.hidden = !task.title;
-    focusOverlayTaskContent.textContent = task.content;
+    if (task.content && markdown.hasMarkdown(task.content)) {
+      focusOverlayTaskContent.classList.add("markdown-body");
+      focusOverlayTaskContent.innerHTML = markdown.render(task.content);
+    } else {
+      focusOverlayTaskContent.classList.remove("markdown-body");
+      focusOverlayTaskContent.textContent = task.content;
+    }
     focusOverlayTaskContent.hidden = !task.content || task.content === task.title;
     focusOverlayTask.setAttribute("aria-label", `当前专注待办：${taskLabel(task)}`);
     focusOverlayTask.scrollTop = 0;
@@ -2435,6 +2693,7 @@
       $("#connection-warning").hidden = false;
     }
     updateSaveStatus();
+    if (previewDialog.open) syncTaskPreview();
   }
   function showFileHelp() {
     const link = element("a", "local-service-link", "打开本地保存页面（携带当前待办）↗");
