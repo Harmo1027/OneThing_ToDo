@@ -40,6 +40,14 @@
   const previewAttachmentsEmpty = $("#task-preview-attachments-empty");
   const previewAttachButton = $("#task-preview-attach");
   const attachmentInput = $("#attachment-file");
+  const exportWorkspaceButton = $("#export-workspace");
+  const importWorkspaceButton = $("#import-workspace");
+  const importFileInput = $("#workspace-import-file");
+  const importDialog = $("#import-dialog");
+  const importSummary = $("#import-summary");
+  const importError = $("#import-error");
+  const importConfirm = $("#import-confirm");
+  const importCancel = $("#import-cancel");
   const toggleCards = $("#toggle-cards");
   const toggleCompletedCards = $("#toggle-completed-cards");
   const reviewView = $("#review-view");
@@ -96,6 +104,7 @@
   let editing = null;
   let previewTaskId = "";
   let attachmentTaskId = "";
+  let pendingImport = null;
   let previewSourceCard = null;
   let previewAnimation = null;
   let previewClosing = false;
@@ -2765,6 +2774,127 @@
   }
   $("#save-button").addEventListener("click", saveLocal);
   document.addEventListener("keydown", event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") { event.preventDefault(); saveLocal(); } });
+
+  function transferDateStamp() {
+    const date = new Date();
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+  function exportWorkspaceData() {
+    let attachmentCount = 0;
+    const tasks = state.tasks.map(task => {
+      const { attachments, ...rest } = task;
+      if (attachments?.length) attachmentCount += attachments.length;
+      return rest;
+    });
+    const payload = {
+      format: "yijian.transfer.v1",
+      app: "yijian-todo",
+      exportedAt: new Date().toISOString(),
+      excludedAttachments: attachmentCount,
+      state: {
+        version: 2,
+        modifiedAt: state.modifiedAt,
+        groups: state.groups.map(group => ({ ...group })),
+        tasks,
+        dailyTasks: state.dailyTasks.map(task => ({ ...task }))
+      }
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = `一件待办-${transferDateStamp()}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1200);
+    notify(`已导出 ${state.tasks.length} 件待办${attachmentCount ? `（未包含 ${attachmentCount} 个附件文件）` : ""}`);
+  }
+  function renderImportSummary() {
+    if (!pendingImport) {
+      importSummary.replaceChildren();
+      return;
+    }
+    const imported = pendingImport.state;
+    const completed = imported.tasks.filter(task => task.completed).length;
+    const lines = [
+      element("p", "import-file", `文件：${pendingImport.fileName}`),
+      element("p", "import-counts", `将导入 ${imported.tasks.length} 件待办 · ${imported.groups.length} 个分组 · ${imported.dailyTasks.length} 条每日任务`),
+      element("p", "import-counts", `其中已完成 ${completed} 件`)
+    ];
+    if (pendingImport.attachmentCount) lines.push(element("p", "import-attachments", `检测到 ${pendingImport.attachmentCount} 个附件；本次只导入待办信息，附件文件不会包含。`));
+    importSummary.replaceChildren(...lines);
+    importError.textContent = "";
+    importConfirm.disabled = false;
+  }
+  async function prepareWorkspaceImport(file) {
+    try {
+      if (file.size > 20 * 1024 * 1024) throw new Error("文件超过 20MB");
+      const text = await file.text();
+      let parsed;
+      try { parsed = JSON.parse(text); } catch { throw new Error("文件不是有效的 JSON"); }
+      let raw = null;
+      if (parsed?.format === "yijian.transfer.v1" || parsed?.format === "yijian.workspace.v2") raw = parsed.state;
+      else if (parsed && parsed.version === 2) raw = parsed;
+      else throw new Error("不是「一件」的全部待办文件");
+      if (!raw || raw.version !== 2 || !Array.isArray(raw.groups) || !Array.isArray(raw.tasks)) throw new Error("待办数据结构不正确");
+      if (raw.dailyTasks !== undefined && !Array.isArray(raw.dailyTasks)) throw new Error("每日任务结构不正确");
+      if (raw.groups.length > 500 || raw.tasks.length > 10000 || (raw.dailyTasks?.length || 0) > 500) throw new Error("待办数量超过限制");
+      const dailyCount = Array.isArray(raw.dailyTasks) ? raw.dailyTasks.length : 0;
+      const imported = normalize(raw);
+      if (imported.groups.length !== raw.groups.length || imported.tasks.length !== raw.tasks.length || imported.dailyTasks.length !== dailyCount) throw new Error("文件含有无法识别的待办或分组，导入已取消");
+      const attachmentCount = imported.tasks.reduce((total, task) => total + (task.attachments?.length || 0), 0);
+      imported.tasks = imported.tasks.map(task => ({ ...task, attachments: [] }));
+      imported.modifiedAt = Date.now();
+      if (JSON.stringify(imported).length > 4_000_000) throw new Error("待办数据过大，无法保存到此浏览器");
+      pendingImport = { state: imported, fileName: file.name || "待办.json", attachmentCount };
+      renderImportSummary();
+      importDialog.showModal();
+      importCancel.focus({ preventScroll: true });
+    } catch (error) {
+      pendingImport = null;
+      notify(`导入失败：${error.message}`);
+    } finally {
+      importFileInput.value = "";
+    }
+  }
+  function closeImportDialog() {
+    pendingImport = null;
+    if (importDialog.open) importDialog.close();
+    else importSummary.replaceChildren();
+  }
+  function applyWorkspaceImport() {
+    if (!pendingImport) return;
+    const imported = pendingImport.state;
+    const count = imported.tasks.length;
+    pendingImport = null;
+    importDialog.close();
+    workspaceView = "todo";
+    activeGroup = "all";
+    state = imported;
+    commit(`已导入 ${count} 件待办`);
+  }
+  exportWorkspaceButton.addEventListener("click", exportWorkspaceData);
+  importWorkspaceButton.addEventListener("click", () => {
+    importFileInput.value = "";
+    importFileInput.click();
+  });
+  importFileInput.addEventListener("change", async () => {
+    const file = importFileInput.files?.[0];
+    importFileInput.value = "";
+    if (file) await prepareWorkspaceImport(file);
+  });
+  importCancel.addEventListener("click", closeImportDialog);
+  importConfirm.addEventListener("click", applyWorkspaceImport);
+  importDialog.addEventListener("cancel", event => { event.preventDefault(); closeImportDialog(); });
+  importDialog.addEventListener("click", event => { if (event.target === importDialog) closeImportDialog(); });
+  importDialog.addEventListener("close", () => {
+    pendingImport = null;
+    importSummary.replaceChildren();
+    importError.textContent = "";
+    importFileInput.value = "";
+  });
+
   window.addEventListener("storage", event => {
     if (event.key === BACKGROUND_KEY) { applyBackground(event.newValue || ""); return; }
     if (event.key === CARD_BLUR_KEY) { cardBlur = event.newValue === null || event.newValue === "" ? CARD_BLUR_DEFAULT : normalizeCardBlur(event.newValue); syncBackgroundBlur(); return; }

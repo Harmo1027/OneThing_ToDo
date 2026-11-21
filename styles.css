@@ -965,3 +965,49 @@ button:active:not(:disabled){scale:.96}
 :root[data-theme="dark"] .markdown-body a:hover{color:#bcecff}
 :root[data-theme="dark"] .markdown-body li::marker{color:var(--blue)}
 :root[data-theme="dark"] .markdown-body hr{border-top-color:rgba(120,160,200,.3)}
+
+/* 数据迁移 */
+.sidebar-transfer{margin:0 0 13px;padding:10px;border:1px solid rgba(214,231,248,.85);border-radius:11px;background:linear-gradient(150deg,rgba(255,255,255,.62),rgba(234,246,255,.28));box-shadow:inset 0 1px 0 rgba(255,255,255,.82)}
+.sidebar-transfer-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;color:#7e92a8;font-size:9px;letter-spacing:.7px}
+.sidebar-transfer-heading span{color:#a9b6c5;font-size:7px;letter-spacing:1px}
+.sidebar-transfer-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.sidebar-transfer-button{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:29px;padding:5px 6px;border:1px solid rgba(0,120,212,.15);border-radius:8px;background:rgba(255,255,255,.48);color:#5b7691;font-size:8.5px;font-weight:600;white-space:nowrap;transition:background .15s,border-color .15s,color .15s,scale .44s var(--spring-bounce)}
+.sidebar-transfer-button svg{width:13px;height:13px;stroke-width:1.8}
+.sidebar-transfer-button:hover{border-color:rgba(0,120,212,.35);background:rgba(0,120,212,.1);color:var(--blue)}
+.sidebar-transfer-button:active{scale:.98}
+:root[data-theme="dark"] .sidebar-transfer{border-color:rgba(120,160,200,.18);background:linear-gradient(150deg,rgba(255,255,255,.05),rgba(76,194,255,.025));box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+:root[data-theme="dark"] .sidebar-transfer-heading{color:var(--ink-3)}
+:root[data-theme="dark"] .sidebar-transfer-heading span{color:#66778b}
+:root[data-theme="dark"] .sidebar-transfer-button{border-color:rgba(120,160,200,.18);background:rgba(255,255,255,.035);color:#a9c9e6}
+:root[data-theme="dark"] .sidebar-transfer-button:hover{border-color:rgba(76,194,255,.4);background:rgba(76,194,255,.1);color:#7dd6ff}
+#import-dialog{width:460px}
+#import-dialog code{font-family:"Cascadia Code","Consolas",monospace;font-size:.92em;background:rgba(30,60,100,.08);border-radius:4px;padding:1px 4px;color:#2b557f}
+.import-summary{display:grid;gap:6px;margin:0 0 14px;padding:12px 14px;border:1px solid #e0ebf7;border-radius:10px;background:rgba(246,251,255,.7);color:#4b6680;font-size:11px;line-height:1.7}
+.import-summary:empty{display:none}
+.import-summary p{margin:0}
+.import-summary .import-file{font-weight:600;color:#2f4764;overflow-wrap:anywhere}
+.import-summary .import-counts{color:#627c96}
+.import-summary .import-attachments{color:#9a7a4d;font-size:10px}
+.import-warning{margin:0 0 12px;padding:10px 12px;border:1px solid #f0e2c8;border-radius:8px;background:#fff9ee;color:#8a6d42;font-size:10px;line-height:1.75}
+#import-dialog .field-error{min-height:0;margin:0 0 12px}
+#import-dialog .field-error:empty{display:none}
+:root[data-theme="dark"] #import-dialog code{background:rgba(76,194,255,.1);color:#a9d9ff}
+:root[data-theme="dark"] .import-summary{border-color:#313f50;background:rgba(23,31,42,.7);color:var(--ink-2)}
+:root[data-theme="dark"] .import-summary .import-file{color:var(--ink)}
+:root[data-theme="dark"] .import-summary .import-counts{color:var(--ink-2)}
+:root[data-theme="dark"] .import-summary .import-attachments{color:#c6a878}
+:root[data-theme="dark"] .import-warning{border-color:#4b3e2c;background:rgba(70,56,36,.5);color:#d6b98b}
+@media(max-width:700px){
+  .sidebar-transfer-actions{grid-template-columns:minmax(0,1fr)}
+  .sidebar-transfer{margin-bottom:10px;padding:8px}
+  .sidebar-transfer-heading{font-size:8px;margin-bottom:6px}
+  .sidebar-transfer-button{min-height:27px;font-size:8px}
+  #import-dialog{width:100%;padding:24px}
+}
+@media(max-width:420px){
+  .sidebar-transfer{padding:7px}
+  .sidebar-transfer-heading span{display:none}
+  .sidebar-transfer-button{font-size:7.5px;gap:3px;padding:4px}
+  .sidebar-transfer-button svg{width:12px;height:12px}
+  #import-dialog{padding:21px 18px}
+}
